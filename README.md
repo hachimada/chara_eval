@@ -76,7 +76,8 @@ uv run python -m src.pos_ngram_similarity \
 --xml datasets/*.xml \
 --model ja_core_news_md \
 --n 2 \
---embedding_type bow 
+--embedding_type bow \
+--creator <creator_name>
 ```
 
 result will be saved in `pos_ngram_similarity` table.
