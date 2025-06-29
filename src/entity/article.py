@@ -1,5 +1,5 @@
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from markdownify import markdownify as md
 
@@ -21,9 +21,7 @@ class Content:
     """
 
     html: str
-    markdown: str = field(
-        init=False, repr=False
-    )  # repr=Falseで、print時に長文が出力されないようにする
+    markdown: str = field(init=False, repr=False)  # repr=Falseで、print時に長文が出力されないようにする
 
     def __post_init__(self):
         """

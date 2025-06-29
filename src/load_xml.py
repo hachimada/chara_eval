@@ -2,11 +2,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 from src.database import DatabaseManager
-from src.services.article_service import ArticleService
 from src.entity.article import Article, Content
+from src.services.article_service import ArticleService
+
 
 def parse_articles_from_xml(file_path: str) -> list[Article]:
-    """Parses a WordPress export XML file and returns a list of Article objects.
+    """Parse a WordPress export XML file and return a list of Article objects.
 
     This function is designed to handle XML files exported from services like
     note.com, which use a WordPress-compatible RSS feed format.
@@ -101,6 +102,7 @@ def parse_articles_from_xml(file_path: str) -> list[Article]:
 
     return articles
 
+
 def parse_args():
     """Parse command line arguments for the script.
 
@@ -120,6 +122,7 @@ def parse_args():
         help="Path to the XML file to parse.",
     )
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = parse_args()

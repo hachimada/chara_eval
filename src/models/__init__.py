@@ -1,3 +1,3 @@
-from .article import ArticleModel, PosNgramSimilarityModel, Base
+from .article import ArticleModel, Base, PosNgramSimilarityModel
 
 __all__ = ["ArticleModel", "PosNgramSimilarityModel", "Base"]

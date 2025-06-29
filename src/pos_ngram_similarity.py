@@ -1,14 +1,15 @@
-from matplotlib import pyplot as plt
+import argparse
+from itertools import combinations
 from pathlib import Path
+
 from tqdm import tqdm
 
 from src.const import ROOT
-from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
-
 from src.database import DatabaseManager
-from src.services import ArticleService, PosNgramSimilarityService
 from src.entity.pos_ngram_similarity import PosNgramSimilarityResult
-import argparse
+from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
+from src.services import ArticleService, PosNgramSimilarityService
+from src.visualize_similarity import visualize_similarities
 
 
 def parse_args():
@@ -55,7 +56,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
     xml_file = args.xml
     model_name = args.model
@@ -77,85 +77,70 @@ if __name__ == "__main__":
     article_list = [art for art in article_list if len(art.content.markdown) >= 100]
     print(f"Filtered articles (length >= 100): {len(article_list)} articles.")
 
-    n_articles = len(article_list)
-    heat_map = [[0.0 for _ in range(n_articles)] for _ in range(n_articles)]
-    similarity_list = []
-    similarity_results = []
+    article_pairs = list(combinations(article_list, 2))
 
-    loop_count = int(
-        (n_articles * n_articles - n_articles) / 2
-    )  # 対角要素を除く組み合わせ数
-    pb = tqdm(total=loop_count)
-    for i in range(n_articles):
-        heat_map[i][i] = 1.0  # 対角要素は自己類似度 1
-        for j in range(i + 1, n_articles):
-            article_a = article_list[i]
-            article_b = article_list[j]
-            
-            # 結果がDBにすでに存在する場合はスキップ
-            existing_similarity = similarity_service.get_similarity(
-                article_a.link, article_b.link, model_name, ngram_size, embedding_type
-            )
-            
-            if existing_similarity is not None:
-                similarity = existing_similarity
-            else:
+    # 既存の類似度を一括取得
+
+    pair_links = [(a.link, b.link) for a, b in article_pairs]
+    existing_similarities = similarity_service.get_similarities_by_pairs(
+        pair_links, model_name, ngram_size, embedding_type
+    )
+
+    existing_pairs = set()
+    for sim in existing_similarities:
+        existing_pairs.add(tuple(sorted((sim.article_id_a, sim.article_id_b))))
+
+    # 未計算のペアを特定
+    new_pairs_to_calculate = []
+    for article_a, article_b in article_pairs:
+        pair_tuple = tuple(sorted((article_a.link, article_b.link)))
+        if pair_tuple not in existing_pairs:
+            new_pairs_to_calculate.append((article_a, article_b))
+
+    # 新しい類似度を計算して保存
+    newly_calculated_similarities = []
+    if new_pairs_to_calculate:
+        with tqdm(total=len(new_pairs_to_calculate)) as pb:
+            for article_a, article_b in new_pairs_to_calculate:
                 similarity = pos_ngram_cosine_similarity(
                     article_a.content.markdown,
                     article_b.content.markdown,
                     n=ngram_size,
                     spacy_model=model_name,
-                    embedding_type=embedding_type
+                    embedding_type=embedding_type,
                 )
-                
-                # 類似度結果を都度保存（途中で失敗しても成功分は保存したい）
+
                 similarity_result = PosNgramSimilarityResult(
                     article_id_a=article_a.link,
                     article_id_b=article_b.link,
                     model=model_name,
                     ngram_size=ngram_size,
                     embedding_method=embedding_type,
-                    ngram_similarity=similarity
+                    ngram_similarity=similarity,
                 )
+
                 similarity_service.save_similarity(similarity_result)
-            
-            heat_map[i][j] = similarity
-            heat_map[j][i] = similarity
-            similarity_list.append(similarity)
-            pb.update(1)
+                newly_calculated_similarities.append(similarity_result)
+                pb.update(1)
+    else:
+        print("No new similarities to calculate.")
 
+    # --- 可視化を実行 ---
+    print("Creating visualizations...")
 
-    # --- ヒートマップ描画 ---
-    # 軸ラベル
-    labels = [
-        f"{idx + 1}:{Path(art.link).name}" for idx, art in enumerate(article_list)
-    ]
+    # 全ての類似度データを結合
+    all_similarities = existing_similarities + newly_calculated_similarities
 
-    fig, ax = plt.subplots(
-        figsize=(max(6, int(n_articles * 0.4)), max(6, int(n_articles * 0.4)))
+    # 記事リンクを収集（article_listの順序を維持）
+    article_links_for_vis = [art.link for art in article_list]
+
+    visualize_similarities(
+        similarities=all_similarities,
+        article_links=article_links_for_vis,
+        model=model_name,
+        ngram_size=ngram_size,
+        embedding_method=embedding_type,
+        creator=creator,
+        output_dir=output_dir,
     )
-    im = ax.imshow(heat_map, cmap="hot", interpolation="nearest")
-
-    # 軸に記事ラベルを設定
-    ax.set_xticks(range(n_articles))
-    ax.set_yticks(range(n_articles))
-    ax.set_xticklabels(labels, rotation=90, fontsize=8)
-    ax.set_yticklabels(labels, fontsize=8)
-
-    # カラーバーとタイトルなど
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    ax.set_title("Article Similarity Heatmap")
-    ax.set_xlabel("Articles")
-    ax.set_ylabel("Articles")
-
-    fig.tight_layout()
-    plt.savefig(str(output_dir / "similarity_heatmap.png"), dpi=300)
-
-    # --- 類似度分布のヒストグラム ---
-    plt.figure(figsize=(8, 4))
-    plt.hist(similarity_list, bins=n_articles, color="blue", alpha=0.7)
-    plt.title("Similarity Distribution")
-    plt.xlabel("Similarity")
-    plt.ylabel("Frequency")
-    plt.grid(axis="y", alpha=0.75)
-    plt.savefig(str(output_dir / "similarity_distribution.png"), dpi=300)
+    print("Visualizations completed.")

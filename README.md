@@ -71,6 +71,11 @@ This repository analyzes xml files that contain articles exported from the note 
 To analyze the similarity of writing styles in articles, you can use the `pos_ngram_similarity` module. 
 This module computes the similarity between articles based on their POS n-grams.
 
+The script automatically:
+- Skips similarity calculations for article pairs that already exist in the database
+- Calculates similarities only for new article combinations
+- Creates visualizations (heatmap and distribution plots) after processing
+
 ```bash
 uv run python -m src.pos_ngram_similarity \
 --xml datasets/*.xml \
@@ -80,5 +85,5 @@ uv run python -m src.pos_ngram_similarity \
 --creator <creator_name>
 ```
 
-result will be saved in `pos_ngram_similarity` table.
+Results will be saved in `pos_ngram_similarity` table and visualization files will be generated in the output directory.
 

@@ -8,6 +8,8 @@ dependencies = [
     "markdownify>=1.1.0",
     "matplotlib>=3.10.3",
     "notebook>=7.4.3",
+    "pandas>=2.3.0",
+    "seaborn>=0.13.2",
     "spacy>=3.8.7",
     "sqlalchemy>=2.0.0",
 ]
@@ -15,6 +17,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=1.16.1",
+    "pytest>=8.4.1",
     "ruff>=0.12.1",
 ]
 
@@ -28,6 +31,7 @@ extend-select = ["I", "D"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
 "**/__init__.py" = ["D104"]
+"*.py" = ["D100", "D301",  "D400" ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
