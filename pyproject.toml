@@ -1,0 +1,40 @@
+[project]
+name = "chara-eval"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.16.2",
+    "markdownify>=1.1.0",
+    "matplotlib>=3.10.3",
+    "notebook>=7.4.3",
+    "spacy>=3.8.7",
+    "sqlalchemy>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.1",
+    "ruff>=0.12.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "D"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
+"**/__init__.py" = ["D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+allow_redefinition = true

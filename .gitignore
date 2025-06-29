@@ -1,0 +1,7 @@
+.idea
+datasets
+notebooks
+output
+**/__pycache__/**
+**/*.pyc
+*.db
