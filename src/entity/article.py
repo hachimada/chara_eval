@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TYPE_CHECKING, Optional
 
 from markdownify import markdownify as md
+
+if TYPE_CHECKING:
+    from src.entity.pos_ngram_similarity import PosNgramSimilarityResult
 
 
 @dataclass
@@ -62,6 +68,10 @@ class Article:
         The type of the post (e.g., 'post').
     status : str
         The status of the post (e.g., 'publish').
+    similarity : Optional[list[PosNgramSimilarityResult]]
+        List of similarity results to other articles. This field is populated
+        when similarity analysis is performed and represents the similarity
+        of this article to other articles.
     """
 
     title: str = ""
@@ -73,3 +83,4 @@ class Article:
     post_date: datetime = field(default_factory=datetime.now)
     post_type: str = ""
     status: str = ""
+    similarity: Optional[list[PosNgramSimilarityResult]] = None

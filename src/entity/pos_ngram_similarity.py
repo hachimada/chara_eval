@@ -3,14 +3,16 @@ from dataclasses import dataclass
 
 @dataclass
 class PosNgramSimilarityResult:
-    """Result of POS n-gram similarity calculation between two articles.
+    """Result of POS n-gram similarity calculation from one article to another.
+
+    This class represents the similarity relationship from the perspective of
+    one article to another article, simplifying the bidirectional relationship
+    into a unidirectional one.
 
     Attributes
     ----------
-    article_id_a : str
-        ID of the first article.
-    article_id_b : str
-        ID of the second article.
+    other_article_id : str
+        ID of the other article being compared to.
     model : str
         Name of the model used for similarity calculation.
     ngram_size : int
@@ -18,11 +20,10 @@ class PosNgramSimilarityResult:
     embedding_method : str
         Method used for embedding generation.
     ngram_similarity : float
-        Calculated similarity score between the articles.
+        Calculated similarity score to the other article.
     """
 
-    article_id_a: str
-    article_id_b: str
+    other_article_id: str
     model: str
     ngram_size: int
     embedding_method: str

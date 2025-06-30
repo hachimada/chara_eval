@@ -23,7 +23,9 @@ class PosNgramSimilarityService:
         """
         self.repository = PosNgramSimilarityRepository(db_manager)
 
-    def save(self, results: PosNgramSimilarityResult | list[PosNgramSimilarityResult]) -> None:
+    def save(
+        self, article_similarities: tuple[str, PosNgramSimilarityResult] | list[tuple[str, PosNgramSimilarityResult]]
+    ) -> None:
         """Save similarity results to the database using bulk operations.
 
         This method always uses bulk operations for optimal performance,
@@ -32,62 +34,12 @@ class PosNgramSimilarityService:
 
         Parameters
         ----------
-        results : PosNgramSimilarityResult | list[PosNgramSimilarityResult]
-            Single result or list of similarity results to save.
+        article_similarities : tuple[str, PosNgramSimilarityResult] | list[tuple[str, PosNgramSimilarityResult]]
+            Single tuple or list of tuples containing (article_id, similarity_result).
         """
-        result_list = [results] if isinstance(results, PosNgramSimilarityResult) else results
-        if result_list:
-            self.repository.save_bulk(result_list)
-
-    def find_similarity(
-        self, article_link_a: str, article_link_b: str, model: str, ngram_size: int, embedding_method: str
-    ) -> Optional[float]:
-        """Find similarity value between two articles with specific parameters.
-
-        Parameters
-        ----------
-        article_link_a : str
-            ID of the first article
-        article_link_b : str
-            ID of the second article
-        model : str
-            Model used for similarity calculation
-        ngram_size : int
-            Size of N-grams used
-        embedding_method : str
-            Method used for embedding
-
-        Returns
-        -------
-        Optional[float]
-            Similarity value if found, None otherwise
-        """
-        return self.repository.find_similarity(article_link_a, article_link_b, model, ngram_size, embedding_method)
-
-    def has_similarity(
-        self, article_link_a: str, article_link_b: str, model: str, ngram_size: int, embedding_method: str
-    ) -> bool:
-        """Check if similarity exists between two articles with specific parameters.
-
-        Parameters
-        ----------
-        article_link_a : str
-            ID of the first article
-        article_link_b : str
-            ID of the second article
-        model : str
-            Model used for similarity calculation
-        ngram_size : int
-            Size of N-grams used
-        embedding_method : str
-            Method used for embedding
-
-        Returns
-        -------
-        bool
-            True if similarity exists, False otherwise
-        """
-        return self.repository.exists(article_link_a, article_link_b, model, ngram_size, embedding_method)
+        similarity_list = [article_similarities] if isinstance(article_similarities, tuple) else article_similarities
+        if similarity_list:
+            self.repository.save_bulk(similarity_list)
 
     def get_similarities_with_filters(
         self, model: Optional[str] = None, ngram_size: Optional[int] = None, embedding_method: Optional[str] = None
@@ -113,18 +65,18 @@ class PosNgramSimilarityService:
         """
         return self.repository.find_all(model, ngram_size, embedding_method)
 
-    def get_similarities_for_pairs(
+    def get_missing_similarities(
         self, pairs: list[tuple[str, str]], model: str, ngram_size: int, embedding_method: str
-    ) -> list[PosNgramSimilarityResult]:
-        """Get similarities for specific article pairs with given parameters.
+    ) -> list[tuple[str, str]]:
+        """Identify article pairs that don't have similarity calculations yet.
 
-        This method provides efficient batch retrieval of similarity results
-        for multiple article pairs using optimized database queries.
+        This method provides business logic to determine which article pairs
+        need similarity calculation, useful for incremental processing.
 
         Parameters
         ----------
         pairs : list[tuple[str, str]]
-            List of article ID pairs to retrieve similarities for
+            List of article ID pairs to check
         model : str
             Model used for similarity calculation
         ngram_size : int
@@ -134,7 +86,41 @@ class PosNgramSimilarityService:
 
         Returns
         -------
-        list[PosNgramSimilarityResult]
-            List of similarity results for the specified pairs
+        list[tuple[str, str]]
+            List of pairs that don't have similarity calculations
         """
-        return self.repository.find_by_pairs(pairs, model, ngram_size, embedding_method)
+        missing_pairs = []
+        for pair in pairs:
+            if not self.repository.exists_for_article(pair[0], pair[1], model, ngram_size, embedding_method):
+                missing_pairs.append(pair)
+        return missing_pairs
+
+    def get_similarity_pairs_for_articles(
+        self,
+        article_links: list[str],
+        model: Optional[str] = None,
+        ngram_size: Optional[int] = None,
+        embedding_method: Optional[str] = None,
+    ) -> list[tuple[str, str, float]]:
+        """Get similarity pairs for visualization purposes.
+
+        This method provides high-level access to similarity data formatted
+        as pairs with full relationship information, suitable for visualization.
+
+        Parameters
+        ----------
+        article_links : list[str]
+            List of article links to get similarities for
+        model : Optional[str], default None
+            Filter by model if provided
+        ngram_size : Optional[int], default None
+            Filter by N-gram size if provided
+        embedding_method : Optional[str], default None
+            Filter by embedding method if provided
+
+        Returns
+        -------
+        list[tuple[str, str, float]]
+            List of tuples containing (article_id_a, article_id_b, similarity_score)
+        """
+        return self.repository.find_pairs_for_articles(article_links, model, ngram_size, embedding_method)

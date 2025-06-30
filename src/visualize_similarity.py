@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -8,12 +9,23 @@ import seaborn as sns
 from src.const import ROOT
 
 
-def create_similarity_matrix(similarities: List, article_links: List[str]) -> Tuple[np.ndarray, Dict[str, int]]:
+@dataclass
+class SimilarityPair:
+    """Represents a similarity relationship between two articles."""
+
+    article_id_a: str
+    article_id_b: str
+    ngram_similarity: float
+
+
+def create_similarity_matrix(
+    similarities: List[SimilarityPair], article_links: List[str]
+) -> Tuple[np.ndarray, Dict[str, int]]:
     """Create a similarity matrix from a list of similarity records.
 
     Parameters
     ----------
-    similarities : List
+    similarities : List[SimilarityPair]
         A list of similarity records. The order of this list does not matter.
     article_links : List[str]
         A list of unique article links. The order of this list defines the
@@ -79,7 +91,9 @@ def create_heatmap(
     plt.close()
 
 
-def create_similarity_distribution(similarities: List, output_path: Path, title: str = "Similarity Distribution"):
+def create_similarity_distribution(
+    similarities: List[SimilarityPair], output_path: Path, title: str = "Similarity Distribution"
+):
     """類似度分布のヒストグラムを作成"""
     similarity_values = [sim.ngram_similarity for sim in similarities]
 
@@ -117,7 +131,7 @@ def create_similarity_distribution(similarities: List, output_path: Path, title:
 
 
 def visualize_similarities(
-    similarities: List,
+    similarities: List[SimilarityPair],
     article_links: List[str],
     creator: str,
     model: str,

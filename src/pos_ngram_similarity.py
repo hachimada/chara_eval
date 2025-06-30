@@ -9,7 +9,51 @@ from src.database import DatabaseManager
 from src.entity.pos_ngram_similarity import PosNgramSimilarityResult
 from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
 from src.services import ArticleService, PosNgramSimilarityService
-from src.visualize_similarity import visualize_similarities
+from src.visualize_similarity import SimilarityPair, visualize_similarities
+
+
+def convert_to_similarity_pairs(
+    similarity_service: PosNgramSimilarityService,
+    article_links: list[str],
+    model: str,
+    ngram_size: int,
+    embedding_method: str,
+) -> list[SimilarityPair]:
+    """Convert similarity data to SimilarityPair objects for visualization using service layer.
+
+    Parameters
+    ----------
+    similarity_service : PosNgramSimilarityService
+        Service instance for accessing similarity data
+    article_links : list[str]
+        List of article links to consider for visualization
+    model : str
+        Model used for similarity calculation
+    ngram_size : int
+        Size of N-grams used
+    embedding_method : str
+        Method used for embedding
+
+    Returns
+    -------
+    list[SimilarityPair]
+        List of similarity pairs suitable for visualization
+    """
+    similarity_tuples = similarity_service.get_similarity_pairs_for_articles(
+        article_links=article_links, model=model, ngram_size=ngram_size, embedding_method=embedding_method
+    )
+
+    similarity_pairs = []
+    for article_id_a, article_id_b, similarity_score in similarity_tuples:
+        similarity_pairs.append(
+            SimilarityPair(
+                article_id_a=article_id_a,
+                article_id_b=article_id_b,
+                ngram_similarity=similarity_score,
+            )
+        )
+
+    return similarity_pairs
 
 
 def parse_args():
@@ -89,23 +133,18 @@ if __name__ == "__main__":
 
     article_pairs = list(combinations(article_list, 2))
 
-    # 既存の類似度を一括取得
-
+    # 既存の類似度を確認し、未計算のペアを特定
     pair_links = [(a.link, b.link) for a, b in article_pairs]
-    existing_similarities = similarity_service.get_similarities_for_pairs(
-        pair_links, model_name, ngram_size, embedding_type
-    )
 
-    existing_pairs = set()
-    for sim in existing_similarities:
-        existing_pairs.add(tuple(sorted((sim.article_id_a, sim.article_id_b))))
+    # Use the new missing pairs detection method
+    missing_pairs = similarity_service.get_missing_similarities(pair_links, model_name, ngram_size, embedding_type)
 
-    # 未計算のペアを特定
+    # Convert missing pair links back to article objects
+    missing_link_set = set(missing_pairs)
     new_pairs_to_calculate = []
-    for article_a, article_b in article_pairs:
-        pair_tuple = tuple(sorted((article_a.link, article_b.link)))
-        if pair_tuple not in existing_pairs:
-            new_pairs_to_calculate.append((article_a, article_b))
+    for a, b in article_pairs:
+        if (a.link, b.link) in missing_link_set or (b.link, a.link) in missing_link_set:
+            new_pairs_to_calculate.append((a, b))
 
     # 新しい類似度を計算して保存
     newly_calculated_similarities = []
@@ -120,17 +159,29 @@ if __name__ == "__main__":
                     embedding_type=embedding_type,
                 )
 
-                similarity_result = PosNgramSimilarityResult(
-                    article_id_a=article_a.link,
-                    article_id_b=article_b.link,
+                # Create similarity results for both directions
+                similarity_result_a_to_b = PosNgramSimilarityResult(
+                    other_article_id=article_b.link,
                     model=model_name,
                     ngram_size=ngram_size,
                     embedding_method=embedding_type,
                     ngram_similarity=similarity,
                 )
 
-                similarity_service.save(similarity_result)
-                newly_calculated_similarities.append(similarity_result)
+                similarity_result_b_to_a = PosNgramSimilarityResult(
+                    other_article_id=article_a.link,
+                    model=model_name,
+                    ngram_size=ngram_size,
+                    embedding_method=embedding_type,
+                    ngram_similarity=similarity,
+                )
+
+                # Save both directions
+                similarity_service.save(
+                    [(article_a.link, similarity_result_a_to_b), (article_b.link, similarity_result_b_to_a)]
+                )
+                newly_calculated_similarities.extend([similarity_result_a_to_b, similarity_result_b_to_a])
+                # newly_calculated_similarities is now handled above
                 pb.update(1)
     else:
         print("No new similarities to calculate.")
@@ -138,14 +189,20 @@ if __name__ == "__main__":
     # --- 可視化を実行 ---
     print("Creating visualizations...")
 
-    # 全ての類似度データを結合
-    all_similarities = existing_similarities + newly_calculated_similarities
-
     # 記事リンクを収集（article_listの順序を維持）
     article_links_for_vis = [art.link for art in article_list]
 
+    # 全ての類似度データをSimilarityPair形式に変換
+    similarity_pairs = convert_to_similarity_pairs(
+        similarity_service=similarity_service,
+        article_links=article_links_for_vis,
+        model=model_name,
+        ngram_size=ngram_size,
+        embedding_method=embedding_type,
+    )
+
     visualize_similarities(
-        similarities=all_similarities,
+        similarities=similarity_pairs,
         article_links=article_links_for_vis,
         model=model_name,
         ngram_size=ngram_size,

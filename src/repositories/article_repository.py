@@ -25,45 +25,6 @@ class ArticleRepository(BaseRepository[Article]):
         """
         super().__init__(db_manager)
 
-    def save(self, article: Article) -> None:
-        """Save a single article to the database.
-
-        If the article already exists (based on link), it will be updated.
-        Otherwise, a new article will be created.
-
-        Parameters
-        ----------
-        article : Article
-            The article object to save.
-        """
-        with self.db_manager.get_session() as session:
-            article_model = ArticleModel(
-                id=article.link,
-                creator=article.creator,
-                pub_date=article.pub_date.isoformat() if article.pub_date else "",
-                post_date=article.post_date.isoformat() if article.post_date else "",
-                title=article.title,
-                body_md=article.content.markdown,
-                body_html=article.content.html,
-                post_id=article.post_id,
-                post_type=article.post_type,
-                status=article.status,
-            )
-
-            existing = session.get(ArticleModel, article.link)
-            if existing:
-                existing.creator = article_model.creator
-                existing.pub_date = article_model.pub_date
-                existing.post_date = article_model.post_date
-                existing.title = article_model.title
-                existing.body_md = article_model.body_md
-                existing.body_html = article_model.body_html
-                existing.post_id = article_model.post_id
-                existing.post_type = article_model.post_type
-                existing.status = article_model.status
-            else:
-                session.add(article_model)
-
     def save_bulk(self, articles: list[Article]) -> None:
         """Save multiple articles to the database efficiently.
 
