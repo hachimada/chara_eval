@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv run ruff check:*)"
+      "Bash(uv run ruff check:*)",
+      "Bash(mkdir:*)",
+      "Bash(uv run ruff format:*)",
+      "Bash(uv run:*)"
     ],
     "deny": []
   }
