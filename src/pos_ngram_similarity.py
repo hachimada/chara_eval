@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     # サイズ制限が指定されている場合は、記事リストを制限
     if args.size is not None:
-        article_list = article_list[:args.size]
+        article_list = article_list[: args.size]
         print(f"Limited to {len(article_list)} articles based on size parameter.")
 
     # 本文が100文字未満の記事は除外
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     # 既存の類似度を一括取得
 
     pair_links = [(a.link, b.link) for a, b in article_pairs]
-    existing_similarities = similarity_service.get_similarities_by_pairs(
+    existing_similarities = similarity_service.get_similarities_for_pairs(
         pair_links, model_name, ngram_size, embedding_type
     )
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                     ngram_similarity=similarity,
                 )
 
-                similarity_service.save_similarity(similarity_result)
+                similarity_service.save(similarity_result)
                 newly_calculated_similarities.append(similarity_result)
                 pb.update(1)
     else:

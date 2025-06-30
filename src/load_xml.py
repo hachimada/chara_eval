@@ -135,6 +135,6 @@ if __name__ == "__main__":
     # データベースに保存
     db_manager = DatabaseManager()
     article_service = ArticleService(db_manager)
-    article_service.save_articles(article_list)
+    article_service.save(article_list)
     print(f"Saved {len(article_list)} articles to database.")
-    print(f"Total articles in database: {article_service.get_article_count()}")
+    print(f"Total articles in database: {article_service.get_total_count()}")

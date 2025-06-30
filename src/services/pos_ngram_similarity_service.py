@@ -6,39 +6,43 @@ from src.repositories.pos_ngram_similarity_repository import PosNgramSimilarityR
 
 
 class PosNgramSimilarityService:
-    """Service for managing POS N-gram similarity operations.
+    """Service for managing high-level POS N-gram similarity operations.
 
-    This service provides high-level operations for POS N-gram similarity
-    by delegating database operations to the PosNgramSimilarityRepository.
+    This service provides business logic and high-level operations for POS N-gram
+    similarity analysis, abstracting complex operations and ensuring consistent
+    bulk processing for optimal performance.
     """
 
-    def __init__(self, db_manager: DatabaseManager):
+    def __init__(self, db_manager: DatabaseManager) -> None:
+        """Initialize service with database manager.
+
+        Parameters
+        ----------
+        db_manager : DatabaseManager
+            Database manager instance for repository initialization.
+        """
         self.repository = PosNgramSimilarityRepository(db_manager)
 
-    def save_similarity(self, result: PosNgramSimilarityResult) -> None:
-        """Save a single POS N-gram similarity result to the database.
+    def save(self, results: PosNgramSimilarityResult | list[PosNgramSimilarityResult]) -> None:
+        """Save similarity results to the database using bulk operations.
+
+        This method always uses bulk operations for optimal performance,
+        even when saving a single result. It handles deduplication and
+        validation automatically.
 
         Parameters
         ----------
-        result : PosNgramSimilarityResult
-            The similarity result to save
+        results : PosNgramSimilarityResult | list[PosNgramSimilarityResult]
+            Single result or list of similarity results to save.
         """
-        self.repository.save(result)
+        result_list = [results] if isinstance(results, PosNgramSimilarityResult) else results
+        if result_list:
+            self.repository.save_bulk(result_list)
 
-    def save_similarities(self, results: list[PosNgramSimilarityResult]) -> None:
-        """Save multiple POS N-gram similarity results to the database using bulk insert.
-
-        Parameters
-        ----------
-        results : list[PosNgramSimilarityResult]
-            List of similarity results to save
-        """
-        self.repository.save_bulk(results)
-
-    def get_similarity(
+    def find_similarity(
         self, article_link_a: str, article_link_b: str, model: str, ngram_size: int, embedding_method: str
     ) -> Optional[float]:
-        """Get similarity value between two articles with specific parameters.
+        """Find similarity value between two articles with specific parameters.
 
         Parameters
         ----------
@@ -60,7 +64,7 @@ class PosNgramSimilarityService:
         """
         return self.repository.find_similarity(article_link_a, article_link_b, model, ngram_size, embedding_method)
 
-    def similarity_exists(
+    def has_similarity(
         self, article_link_a: str, article_link_b: str, model: str, ngram_size: int, embedding_method: str
     ) -> bool:
         """Check if similarity exists between two articles with specific parameters.
@@ -85,10 +89,13 @@ class PosNgramSimilarityService:
         """
         return self.repository.exists(article_link_a, article_link_b, model, ngram_size, embedding_method)
 
-    def get_all_similarities(
+    def get_similarities_with_filters(
         self, model: Optional[str] = None, ngram_size: Optional[int] = None, embedding_method: Optional[str] = None
     ) -> list[PosNgramSimilarityResult]:
-        """Get all similarity results with optional filtering.
+        """Get similarity results with optional filtering criteria.
+
+        This method provides a high-level interface for retrieving similarity
+        results with flexible filtering options.
 
         Parameters
         ----------
@@ -106,10 +113,13 @@ class PosNgramSimilarityService:
         """
         return self.repository.find_all(model, ngram_size, embedding_method)
 
-    def get_similarities_by_pairs(
+    def get_similarities_for_pairs(
         self, pairs: list[tuple[str, str]], model: str, ngram_size: int, embedding_method: str
     ) -> list[PosNgramSimilarityResult]:
         """Get similarities for specific article pairs with given parameters.
+
+        This method provides efficient batch retrieval of similarity results
+        for multiple article pairs using optimized database queries.
 
         Parameters
         ----------
