@@ -52,6 +52,11 @@ def parse_args():
         required=True,
         help="Creator name to filter articles by.",
     )
+    parser.add_argument(
+        "--size",
+        type=int,
+        help="Size of the maximum number of articles to process. If not specified, all articles will be processed.",
+    )
     return parser.parse_args()
 
 
@@ -72,6 +77,11 @@ if __name__ == "__main__":
     # 記事リストを取得
     article_list = article_service.get_articles_by_creator(creator=creator, newest_first=True)
     print(f"Found {len(article_list)} articles.")
+
+    # サイズ制限が指定されている場合は、記事リストを制限
+    if args.size is not None:
+        article_list = article_list[:args.size]
+        print(f"Limited to {len(article_list)} articles based on size parameter.")
 
     # 本文が100文字未満の記事は除外
     article_list = [art for art in article_list if len(art.content.markdown) >= 100]
