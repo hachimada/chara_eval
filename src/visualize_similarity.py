@@ -190,10 +190,11 @@ class ArticleSimilarityStats:
     max_val: float
     q25: float
     q75: float
+    character_count: int
 
 
 def analyze_article_similarities(
-    similarities: List[SimilarityPair], article_links: List[str]
+    similarities: List[SimilarityPair], article_links: List[str], articles: List = None
 ) -> List[ArticleSimilarityStats]:
     """Analyze similarity distributions for each article.
 
@@ -203,6 +204,8 @@ def analyze_article_similarities(
         List of similarity pairs
     article_links : List[str]
         List of article links to analyze
+    articles : List, optional
+        List of article objects with content information
 
     Returns
     -------
@@ -210,6 +213,12 @@ def analyze_article_similarities(
         List of similarity statistics for each article
     """
     article_stats = []
+
+    # Create mapping from article_id to character count
+    char_count_map = {}
+    if articles:
+        for article in articles:
+            char_count_map[article.link] = len(article.content.markdown)
 
     for article_id in article_links:
         # Get similarities for this article (both as source and target)
@@ -224,6 +233,8 @@ def analyze_article_similarities(
         if article_similarities:
             similarities_array = np.array(article_similarities)
 
+            character_count = char_count_map.get(article_id, 0)
+
             stats = ArticleSimilarityStats(
                 article_id=article_id,
                 similarities=article_similarities,
@@ -234,6 +245,7 @@ def analyze_article_similarities(
                 max_val=float(np.max(similarities_array)),
                 q25=float(np.percentile(similarities_array, 25)),
                 q75=float(np.percentile(similarities_array, 75)),
+                character_count=character_count,
             )
             article_stats.append(stats)
 
@@ -262,6 +274,7 @@ def export_article_similarity_stats_csv(
         fieldnames = [
             "article_id",
             "article_name",
+            "character_count",
             "mean_similarity",
             "median_similarity",
             "std_similarity",
@@ -282,6 +295,7 @@ def export_article_similarity_stats_csv(
                 {
                     "article_id": stats.article_id,
                     "article_name": article_name,
+                    "character_count": stats.character_count,
                     "mean_similarity": round(stats.mean, 6),
                     "median_similarity": round(stats.median, 6),
                     "std_similarity": round(stats.std, 6),

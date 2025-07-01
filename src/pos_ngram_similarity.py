@@ -222,7 +222,7 @@ if __name__ == "__main__":
     print("Creating article-wise similarity analysis...")
 
     # 記事別の類似度統計を計算
-    article_stats = analyze_article_similarities(similarity_pairs, article_links_for_vis)
+    article_stats = analyze_article_similarities(similarity_pairs, article_links_for_vis, article_list)
 
     if article_stats:
         save_dir = output_dir / creator
