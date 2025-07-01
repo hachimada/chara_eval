@@ -2,6 +2,7 @@ import argparse
 from itertools import combinations
 from pathlib import Path
 
+import numpy as np
 from tqdm import tqdm
 
 from src.const import ROOT
@@ -9,7 +10,13 @@ from src.database import DatabaseManager
 from src.entity.pos_ngram_similarity import PosNgramSimilarityResult
 from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
 from src.services import ArticleService, PosNgramSimilarityService
-from src.visualize_similarity import SimilarityPair, visualize_similarities
+from src.visualize_similarity import (
+    SimilarityPair,
+    analyze_article_similarities,
+    create_median_similarity_distribution,
+    export_article_similarity_stats_csv,
+    visualize_similarities,
+)
 
 
 def convert_to_similarity_pairs(
@@ -210,4 +217,42 @@ if __name__ == "__main__":
         creator=creator,
         output_dir=output_dir,
     )
-    print("Visualizations completed.")
+
+    # --- 記事別類似度分析を実行 ---
+    print("Creating article-wise similarity analysis...")
+
+    # 記事別の類似度統計を計算
+    article_stats = analyze_article_similarities(similarity_pairs, article_links_for_vis)
+
+    if article_stats:
+        save_dir = output_dir / creator
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        # ファイル名サフィックス
+        suffix_parts = [f"model_{model_name}", f"n_{ngram_size}", f"emb_{embedding_type}"]
+        suffix = "_" + "_".join(suffix_parts) if suffix_parts else ""
+
+        # 記事別類似度統計をCSVに出力
+        csv_path = save_dir / f"article_similarity_statistics{suffix}.csv"
+        export_article_similarity_stats_csv(article_stats, csv_path)
+        print(f"Article similarity statistics saved to: {csv_path}")
+
+        # 記事ごとの類似度中央値の分布
+        median_dist_path = save_dir / f"median_similarity_distribution{suffix}.png"
+        median_dist_title = "Distribution of Article Similarity Medians"
+        if suffix_parts:
+            median_dist_title += f" ({', '.join(suffix_parts)})"
+
+        create_median_similarity_distribution(article_stats, median_dist_path, median_dist_title)
+        print(f"Median similarity distribution saved to: {median_dist_path}")
+
+        # 統計サマリーを出力
+        print("\nAnalysis Summary:")
+        print(f"Total articles analyzed: {len(article_stats)}")
+        medians = [stats.median for stats in article_stats]
+        print(f"Overall median similarity - Mean: {np.mean(medians):.3f}, Std: {np.std(medians):.3f}")
+        print(f"Range of medians: {np.min(medians):.3f} - {np.max(medians):.3f}")
+    else:
+        print("No similarity data available for analysis.")
+
+    print("All visualizations and analysis completed.")

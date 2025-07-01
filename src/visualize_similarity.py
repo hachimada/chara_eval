@@ -175,3 +175,179 @@ def visualize_similarities(
 
     create_similarity_distribution(similarities, distribution_path, dist_title)
     print(f"Distribution plot saved to: {distribution_path}")
+
+
+@dataclass
+class ArticleSimilarityStats:
+    """Statistics for similarity distribution of a single article."""
+
+    article_id: str
+    similarities: list[float]
+    mean: float
+    median: float
+    std: float
+    min_val: float
+    max_val: float
+    q25: float
+    q75: float
+
+
+def analyze_article_similarities(
+    similarities: List[SimilarityPair], article_links: List[str]
+) -> List[ArticleSimilarityStats]:
+    """Analyze similarity distributions for each article.
+
+    Parameters
+    ----------
+    similarities : List[SimilarityPair]
+        List of similarity pairs
+    article_links : List[str]
+        List of article links to analyze
+
+    Returns
+    -------
+    List[ArticleSimilarityStats]
+        List of similarity statistics for each article
+    """
+    article_stats = []
+
+    for article_id in article_links:
+        # Get similarities for this article (both as source and target)
+        article_similarities = []
+
+        for sim in similarities:
+            if sim.article_id_a == article_id:
+                article_similarities.append(sim.ngram_similarity)
+            elif sim.article_id_b == article_id:
+                article_similarities.append(sim.ngram_similarity)
+
+        if article_similarities:
+            similarities_array = np.array(article_similarities)
+
+            stats = ArticleSimilarityStats(
+                article_id=article_id,
+                similarities=article_similarities,
+                mean=float(np.mean(similarities_array)),
+                median=float(np.median(similarities_array)),
+                std=float(np.std(similarities_array)),
+                min_val=float(np.min(similarities_array)),
+                max_val=float(np.max(similarities_array)),
+                q25=float(np.percentile(similarities_array, 25)),
+                q75=float(np.percentile(similarities_array, 75)),
+            )
+            article_stats.append(stats)
+
+    return article_stats
+
+
+def export_article_similarity_stats_csv(
+    article_stats: List[ArticleSimilarityStats],
+    output_path: Path,
+) -> None:
+    """Export article similarity statistics to CSV file.
+
+    Parameters
+    ----------
+    article_stats : List[ArticleSimilarityStats]
+        List of article similarity statistics
+    output_path : Path
+        Path to save the CSV file
+    """
+    if not article_stats:
+        return
+
+    import csv
+
+    with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
+        fieldnames = [
+            "article_id",
+            "article_name",
+            "mean_similarity",
+            "median_similarity",
+            "std_similarity",
+            "min_similarity",
+            "max_similarity",
+            "q25_similarity",
+            "q75_similarity",
+            "num_comparisons",
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for stats in article_stats:
+            # Extract article name from path
+            article_name = Path(stats.article_id).name if Path(stats.article_id).name else "Unknown"
+
+            writer.writerow(
+                {
+                    "article_id": stats.article_id,
+                    "article_name": article_name,
+                    "mean_similarity": round(stats.mean, 6),
+                    "median_similarity": round(stats.median, 6),
+                    "std_similarity": round(stats.std, 6),
+                    "min_similarity": round(stats.min_val, 6),
+                    "max_similarity": round(stats.max_val, 6),
+                    "q25_similarity": round(stats.q25, 6),
+                    "q75_similarity": round(stats.q75, 6),
+                    "num_comparisons": len(stats.similarities),
+                }
+            )
+
+
+def create_median_similarity_distribution(
+    article_stats: List[ArticleSimilarityStats],
+    output_path: Path,
+    title: str = "Distribution of Article Similarity Medians",
+) -> None:
+    """Create distribution of similarity medians across all articles.
+
+    Parameters
+    ----------
+    article_stats : List[ArticleSimilarityStats]
+        List of article similarity statistics
+    output_path : Path
+        Path to save the visualization
+    title : str, default "Distribution of Article Similarity Medians"
+        Title for the visualization
+    """
+    if not article_stats:
+        return
+
+    medians = [stats.median for stats in article_stats]
+
+    plt.figure(figsize=(10, 6))
+
+    # Create histogram
+    plt.hist(medians, bins=max(5, len(medians) // 3), color="lightcoral", alpha=0.7, edgecolor="black")
+
+    # Add statistics
+    overall_mean = np.mean(medians)
+    overall_median = np.median(medians)
+    overall_std = np.std(medians)
+
+    plt.axvline(overall_mean, color="red", linestyle="--", linewidth=2, label=f"Mean: {overall_mean:.3f}")
+    plt.axvline(overall_median, color="green", linestyle="--", linewidth=2, label=f"Median: {overall_median:.3f}")
+
+    plt.title(title, fontsize=14)
+    plt.xlabel("Median Similarity Score", fontsize=12)
+    plt.ylabel("Number of Articles", fontsize=12)
+    plt.legend()
+    plt.grid(axis="y", alpha=0.3)
+
+    # Add statistics text box
+    stats_text = (
+        f"Mean: {overall_mean:.3f}\nMedian: {overall_median:.3f}\nStd: {overall_std:.3f}\nArticles: {len(medians)}"
+    )
+    plt.text(
+        0.02,
+        0.98,
+        stats_text,
+        transform=plt.gca().transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
