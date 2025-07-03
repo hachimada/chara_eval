@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -191,10 +192,11 @@ class ArticleSimilarityStats:
     q25: float
     q75: float
     character_count: int
+    pub_date: Optional[datetime] = None
 
 
 def analyze_article_similarities(
-    similarities: List[SimilarityPair], article_links: List[str], articles: List = None
+    similarities: List[SimilarityPair], article_links: List[str], articles: Optional[List] = None
 ) -> List[ArticleSimilarityStats]:
     """Analyze similarity distributions for each article.
 
@@ -214,11 +216,13 @@ def analyze_article_similarities(
     """
     article_stats = []
 
-    # Create mapping from article_id to character count
+    # Create mapping from article_id to character count and publication date
     char_count_map = {}
+    pub_date_map = {}
     if articles:
         for article in articles:
             char_count_map[article.link] = len(article.content.markdown)
+            pub_date_map[article.link] = article.pub_date
 
     for article_id in article_links:
         # Get similarities for this article (both as source and target)
@@ -234,6 +238,7 @@ def analyze_article_similarities(
             similarities_array = np.array(article_similarities)
 
             character_count = char_count_map.get(article_id, 0)
+            pub_date = pub_date_map.get(article_id, None)
 
             stats = ArticleSimilarityStats(
                 article_id=article_id,
@@ -246,6 +251,7 @@ def analyze_article_similarities(
                 q25=float(np.percentile(similarities_array, 25)),
                 q75=float(np.percentile(similarities_array, 75)),
                 character_count=character_count,
+                pub_date=pub_date,
             )
             article_stats.append(stats)
 
@@ -274,6 +280,7 @@ def export_article_similarity_stats_csv(
         fieldnames = [
             "article_id",
             "article_name",
+            "pub_date",
             "character_count",
             "mean_similarity",
             "median_similarity",
@@ -291,10 +298,14 @@ def export_article_similarity_stats_csv(
             # Extract article name from path
             article_name = Path(stats.article_id).name if Path(stats.article_id).name else "Unknown"
 
+            # Format publication date as ISO format string
+            pub_date_str = stats.pub_date.isoformat() if stats.pub_date else ""
+
             writer.writerow(
                 {
                     "article_id": stats.article_id,
                     "article_name": article_name,
+                    "pub_date": pub_date_str,
                     "character_count": stats.character_count,
                     "mean_similarity": round(stats.mean, 6),
                     "median_similarity": round(stats.median, 6),

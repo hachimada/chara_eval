@@ -75,6 +75,33 @@ def embedding(
     else:
         raise ValueError("Unknown embedding type: {}".format(type))
 
+def morphological_analysis(nlp, text: str) -> tuple[List[str], List[str], List[str]]:
+    """Perform morphological analysis on the input text using SpaCy.
+
+    Parameters
+    ----------
+    nlp : spacy.language.Language
+        Loaded SpaCy model for processing.
+    text : str
+        Input text to analyze.
+
+    Returns
+    -------
+    tuple[List[str], List[str], List[str]]
+        - List of tokens in the text.
+        - List of POS tags corresponding to each token.
+        - List of lemmas corresponding to each token.
+    """
+    doc = nlp(text)
+    test_list = []
+    pos_list = []
+    lemma_list = []
+    for token in doc:
+        test_list.append(token.text)
+        pos_list.append(token.pos_)
+        lemma_list.append(token.lemma_)
+    return test_list, pos_list, lemma_list
+
 
 def pos_ngram_cosine_similarity(
     text_a: str,
@@ -126,16 +153,16 @@ def pos_ngram_cosine_similarity(
 
     nlp = pos_ngram_cosine_similarity._nlp
 
-    # 形態素解析してPOS列を取得
-    doc_a = [token.pos_ for token in nlp(text_a)]
-    doc_b = [token.pos_ for token in nlp(text_b)]
+    # 形態素解析
+    doc_a, pos_a, lemma_a = morphological_analysis(nlp, text_a)
+    doc_b, pos_b, lemma_b = morphological_analysis(nlp, text_b)
 
     # 十分な長さがなければ類似度は0とする
-    if len(doc_a) < n or len(doc_b) < n:
+    if len(pos_a) < n or len(pos_b) < n:
         return 0.0
 
-    counter_a = _pos_ngrams(doc_a, n)
-    counter_b = _pos_ngrams(doc_b, n)
+    counter_a = _pos_ngrams(pos_a, n)
+    counter_b = _pos_ngrams(pos_b, n)
 
     # 品詞n-gramのベクトル化
     vector_a, vector_b = embedding(counter_a, counter_b, embedding_type=embedding_type)

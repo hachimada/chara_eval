@@ -4,7 +4,8 @@
       "Bash(uv run ruff check:*)",
       "Bash(mkdir:*)",
       "Bash(uv run ruff format:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
