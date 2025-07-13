@@ -143,7 +143,6 @@ def pos_ngram_cosine_similarity(
         \\text{sim}(\\mathbf{A}, \\mathbf{B}) =
         \\frac{\\sum_i A_i B_i}{\\sqrt{\\sum_i A_i^2}\\;\\sqrt{\\sum_i B_i^2}}.
     """
-
     # 形態素解析
     doc_a, pos_a, lemma_a = morphological_analysis(nlp, text_a)
     doc_b, pos_b, lemma_b = morphological_analysis(nlp, text_b)

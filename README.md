@@ -64,7 +64,6 @@ This repository analyzes xml files that contain articles exported from the note 
 | embedding_method | text | POSの埋め込み方法    |
 | ngram_similarity | text | pos_ngramの類似度 |
 
-
 ### Writing style similarity
 
 To analyze the similarity of writing styles in articles, you can use the `calculate_article_similarities` module.
@@ -119,7 +118,8 @@ articles in the dataset.
 
 ### Overview
 
-The Article Evaluation API provides functionality to evaluate the similarity between a new article and existing articles that have high median similarity scores. This feature is useful for:
+The Article Evaluation API provides functionality to evaluate the similarity between a new article and existing articles
+that have high median similarity scores. This feature is useful for:
 
 - Content quality assessment based on writing style similarity
 - Identifying articles with similar writing patterns
@@ -137,6 +137,7 @@ The Article Evaluation API provides functionality to evaluate the similarity bet
 #### Command Line Interface
 
 **Using direct content:**
+
 ```bash
 uv run python -m src.eval_article \
 --content "新しい記事の内容をここに直接入力" \
@@ -146,6 +147,7 @@ uv run python -m src.eval_article \
 ```
 
 **Using file path:**
+
 ```bash
 uv run python -m src.eval_article \
 --file "datasets/new_article.md" \
@@ -172,6 +174,7 @@ The API will be available at `http://localhost:8000` with the following endpoint
 #### API Request Examples
 
 **Using direct content:**
+
 ```bash
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
@@ -183,6 +186,7 @@ curl -X POST "http://localhost:8000/evaluate" \
 ```
 
 **Using file path:**
+
 ```bash
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
@@ -196,12 +200,14 @@ curl -X POST "http://localhost:8000/evaluate" \
 #### Parameters
 
 **API Parameters:**
+
 - `content`: Direct article content text (optional, mutually exclusive with file_path)
 - `file_path`: Path to file containing article content (optional, mutually exclusive with content)
 - `config_path`: Path to calculation_config.json file (required)
 - `median_similarity_th`: Median similarity threshold for filtering existing articles (default: 0.93)
 
 **CLI Parameters:**
+
 - `--content`: Direct article content text (mutually exclusive with --file)
 - `--file`: Path to file containing article content (mutually exclusive with --content)
 - `--csv`: Path to article_similarity_statistics.csv file (required)
@@ -209,9 +215,11 @@ curl -X POST "http://localhost:8000/evaluate" \
 - `--th`: Median similarity threshold (default: 0.93)
 
 **Important Notes:**
+
 - For API: Either `content` or `file_path` must be provided, but not both
 - For CLI: Either `--content` or `--file` must be provided, but not both
-- The CSV file (`article_similarity_statistics.csv`) is automatically loaded from the same directory as the config file for API requests
+- The CSV file (`article_similarity_statistics.csv`) is automatically loaded from the same directory as the config file
+  for API requests
 - File paths can be absolute or relative to the current working directory
 
 #### Response
@@ -226,8 +234,91 @@ The API returns evaluation results including:
 #### Error Handling
 
 The API now provides clear error messages for:
+
 - Missing or invalid input parameters (both content and file_path provided, or neither provided)
 - File not found errors
 - Invalid file paths
 - Missing configuration or CSV files
+
+### Article Evaluation Testing
+
+#### Overview
+
+The `test_eval_article.py` script provides a comprehensive testing framework to evaluate the performance and accuracy of
+the Article Evaluation API by systematically testing all existing articles. This script is designed to validate the
+API's judgment capability by using each existing article as a test case.
+
+#### Purpose and Relationship to the API
+
+This testing script directly relates to the Article Evaluation API in the following ways:
+
+1. **API Validation**: Tests the core logic used by the API to determine article similarity and author identification
+2. **Performance Assessment**: Evaluates how well the API can distinguish between articles from the same author versus
+   different authors
+3. **Threshold Optimization**: Helps determine optimal `median_similarity_th` values for filtering high-quality
+   reference articles
+4. **Data Quality Verification**: Validates the pre-computed similarity data stored in the `pos_ngram_similarity` table
+
+#### How it Works
+
+The script implements a cross-validation approach:
+
+1. **Article Selection**: Each existing article is treated as a "new" article for testing
+2. **Reference Article Filtering**: For each test article:
+    - Load article statistics from CSV
+    - Filter articles using `median_similarity_th` (same logic as API)
+    - Exclude the test article itself from the reference set
+3. **Similarity Retrieval**: Retrieve pre-computed similarities from `pos_ngram_similarity` table instead of
+   recalculating
+4. **Statistical Analysis**: Calculate the same statistics the API would return (mean, median, std, min, max)
+5. **Result Export**: Save comprehensive results to CSV for analysis
+
+#### Key Differences from the API
+
+- **Data Source**: Uses pre-computed similarities from database instead of real-time calculation
+- **Efficiency**: Much faster than API since it avoids NLP processing overhead
+- **Comprehensive**: Tests all articles systematically rather than single article evaluation
+- **Analysis Focus**: Designed for bulk analysis and performance evaluation
+
+#### Usage
+
+```bash
+uv run python -m src.test_eval_article \
+--csv output/{creator_name}/{timestamp}/article_similarity_statistics.csv \
+--config output/{creator_name}/{timestamp}/calculation_config.json \
+--th 0.93 \
+--output evaluation_test_results.csv
+```
+
+#### Parameters
+
+- `--csv`: Path to article_similarity_statistics.csv file (required)
+- `--config`: Path to calculation_config.json file (required)
+- `--th`: Median similarity threshold for filtering (default: 0.93)
+- `--output`: Output CSV file path (default: article_evaluation_results.csv)
+
+#### Output CSV Structure
+
+The output CSV contains the following columns for each tested article:
+
+| Column Name  | Data Type | Description                                     |
+|--------------|-----------|-------------------------------------------------|
+| `article_id` | string    | Article ID (URL) of the test article            |
+| `count`      | int       | Number of reference articles compared against   |
+| `mean`       | float     | Mean similarity score with reference articles   |
+| `median`     | float     | Median similarity score with reference articles |
+| `std`        | float     | Standard deviation of similarity scores         |
+| `min`        | float     | Minimum similarity score                        |
+| `max`        | float     | Maximum similarity score                        |
+
+#### Prerequisites
+
+Before running the test script, ensure you have:
+
+1. Completed similarity calculations using `calculate_article_similarities`
+2. Generated `article_similarity_statistics.csv` and `calculation_config.json`
+3. Populated `pos_ngram_similarity` table with article pair similarities
+
+This testing framework provides essential insights into the API's behavior and helps optimize its configuration for
+production use.
 

@@ -192,3 +192,53 @@ class PosNgramSimilarityRepository(BaseRepository[PosNgramSimilarityResult]):
                         processed_pairs.add(pair_key)
 
             return pairs
+
+    def get_similarity_between_articles(
+        self,
+        article_id_a: str,
+        article_id_b: str,
+        model: str,
+        ngram_size: int,
+        embedding_method: str,
+    ) -> Optional[float]:
+        """Get similarity score between two specific articles.
+
+        Parameters
+        ----------
+        article_id_a : str
+            ID of the first article
+        article_id_b : str
+            ID of the second article
+        model : str
+            Model used for similarity calculation
+        ngram_size : int
+            Size of N-grams used
+        embedding_method : str
+            Method used for embedding
+
+        Returns
+        -------
+        Optional[float]
+            Similarity score if found, None otherwise
+        """
+        with self.db_manager.get_session() as session:
+            # Check both directions (a->b and b->a)
+            result = (
+                session.query(PosNgramSimilarityModel)
+                .filter(
+                    (
+                        (PosNgramSimilarityModel.article_id_a == article_id_a)
+                        & (PosNgramSimilarityModel.article_id_b == article_id_b)
+                    )
+                    | (
+                        (PosNgramSimilarityModel.article_id_a == article_id_b)
+                        & (PosNgramSimilarityModel.article_id_b == article_id_a)
+                    ),
+                    PosNgramSimilarityModel.model == model,
+                    PosNgramSimilarityModel.ngram_size == ngram_size,
+                    PosNgramSimilarityModel.embedding_method == embedding_method,
+                )
+                .first()
+            )
+
+            return result.ngram_similarity if result else None

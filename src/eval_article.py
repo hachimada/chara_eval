@@ -129,10 +129,7 @@ def get_article_content(content: str | None = None, file_path: str | None = None
 
 
 def calculate_similarity_with_articles(
-    new_content: str,
-    articles: list[Article],
-    config: CalculationConfig,
-    nlp: spacy.language.Language
+    new_content: str, articles: list[Article], config: CalculationConfig, nlp: spacy.language.Language
 ) -> dict[str, Any]:
     """Calculate similarity between new content and articles.
 
@@ -154,7 +151,6 @@ def calculate_similarity_with_articles(
     """
     similarities = []
     for article in articles:
-
         # Calculate similarity using the same method as in the original calculation
         similarity = pos_ngram_cosine_similarity(
             new_content,

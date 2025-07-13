@@ -78,3 +78,13 @@ class ArticleService:
             List of found articles. Articles not found are omitted from the result.
         """
         return self.repository.find_by_ids(article_ids)
+
+    def get_all_articles(self) -> list[Article]:
+        """Get all articles from the database.
+
+        Returns
+        -------
+        list[Article]
+            List of all articles in the database.
+        """
+        return self.repository.find_all()
