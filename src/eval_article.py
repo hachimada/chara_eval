@@ -13,6 +13,7 @@ import pandas as pd
 import spacy
 
 from src.database import DatabaseManager
+from src.entity.article import Article
 from src.entity.pos_ngram_similarity import CalculationConfig
 from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
 from src.services import ArticleService
@@ -127,65 +128,43 @@ def get_article_content(content: str | None = None, file_path: str | None = None
         return load_content_from_file_path(file_path)
 
 
-def calculate_similarity_with_filtered_articles(
-    new_content: str, filtered_articles: pd.DataFrame, config: CalculationConfig
+def calculate_similarity_with_articles(
+    new_content: str,
+    articles: list[Article],
+    config: CalculationConfig,
+    nlp: spacy.language.Language
 ) -> dict[str, Any]:
-    """Calculate similarity between new content and filtered articles.
+    """Calculate similarity between new content and articles.
 
     Parameters
     ----------
     new_content : str
         Content of the new article
-    filtered_articles : pd.DataFrame
-        DataFrame of filtered articles
+    articles : list[Article]
+        List of existing articles to compare against
     config : CalculationConfig
         Configuration containing model parameters
+    nlp : spacy.language.Language
+        Loaded spaCy NLP model for processing
 
     Returns
     -------
     dict[str, Any]
         Dictionary containing similarity statistics
     """
-    # Initialize database connection and service
-    db_manager = DatabaseManager()
-    article_service = ArticleService(db_manager)
-
-    # Get article IDs from filtered articles
-    article_ids = filtered_articles["article_id"].tolist()
-
-    # Retrieve articles from database
-    articles = article_service.get_articles_by_ids(article_ids)
-
-    # Create a mapping from article_id to article object
-    article_map = {article.link: article for article in articles}
-
-    nlp = spacy.load(config.model)
     similarities = []
-    for _, article_row in filtered_articles.iterrows():
-        article_id = article_row["article_id"]
+    for article in articles:
 
-        try:
-            # Get article from the retrieved articles
-            article = article_map.get(article_id)
+        # Calculate similarity using the same method as in the original calculation
+        similarity = pos_ngram_cosine_similarity(
+            new_content,
+            article.content.markdown,
+            n=config.ngram_size,
+            nlp=nlp,
+            embedding_type=config.embedding_method,
+        )
 
-            if article is None:
-                print(f"Warning: Article not found in database: {article_id}")
-                continue
-
-            # Calculate similarity using the same method as in the original calculation
-            similarity = pos_ngram_cosine_similarity(
-                new_content,
-                article.content.markdown,
-                n=config.ngram_size,
-                nlp=nlp,
-                embedding_type=config.embedding_method,
-            )
-
-            similarities.append(similarity)
-
-        except Exception as e:
-            print(f"Error calculating similarity for article {article_id}: {str(e)}")
-            continue
+        similarities.append(similarity)
 
     # Calculate statistics
     if similarities:
@@ -205,8 +184,8 @@ def calculate_similarity_with_filtered_articles(
 
 def eval_article_main(
     csv_path: Path,
+    config_path: Path,
     median_similarity_th: float = 0.93,
-    config_path: Path = None,
     content: str | None = None,
     file_path: str | None = None,
 ) -> dict[str, Any]:
@@ -237,15 +216,23 @@ def eval_article_main(
     df = load_article_statistics(csv_path)
 
     # Filter articles by median similarity threshold
-    filtered_articles = filter_articles_by_median_similarity(df, median_similarity_th)
+    filtered_articles_df = filter_articles_by_median_similarity(df, median_similarity_th)
 
-    # Load calculation configuration if provided
-    config = None
-    if config_path and config_path.exists():
-        config = load_calculation_config(config_path)
+    # Get article IDs from filtered articles
+    article_ids = filtered_articles_df["article_id"].tolist()
+
+    # Retrieve articles from database
+    db_manager = DatabaseManager()
+    article_service = ArticleService(db_manager)
+    articles = article_service.get_articles_by_ids(article_ids)
+
+    # Load calculation configuration
+    config = load_calculation_config(config_path)
+
+    nlp = spacy.load(config.model)
 
     # Calculate similarities
-    similarity_results = calculate_similarity_with_filtered_articles(new_content, filtered_articles, config)
+    similarity_results = calculate_similarity_with_articles(new_content, articles, config, nlp)
 
     # Prepare results summary
     results = {
@@ -259,8 +246,8 @@ def eval_article_main(
         },
         "filtering_results": {
             "total_articles": len(df),
-            "filtered_articles": len(filtered_articles),
-            "filtering_ratio": len(filtered_articles) / len(df) if len(df) > 0 else 0,
+            "filtered_articles": len(filtered_articles_df),
+            "filtering_ratio": len(filtered_articles_df) / len(df) if len(df) > 0 else 0,
         },
         "similarity_results": similarity_results,
         "configuration": config.to_dict() if config else None,
