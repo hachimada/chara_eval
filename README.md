@@ -87,3 +87,24 @@ uv run python -m src.pos_ngram_similarity \
 
 Results will be saved in `pos_ngram_similarity` table and visualization files will be generated in the output directory.
 
+#### CSV Output
+
+The script generates an article similarity statistics CSV file with the following structure:
+
+| Column Name | Data Type | Description |
+|-------------|-----------|-------------|
+| `article_id` | string | Article ID (URL) |
+| `article_name` | string | Article name (extracted from URL) |
+| `pub_date` | string | Publication date (ISO format) |
+| `character_count` | int | Character count of the article |
+| `mean_similarity` | float | Mean similarity score with other articles (6 decimal places) |
+| `median_similarity` | float | Median similarity score with other articles (6 decimal places) |
+| `std_similarity` | float | Standard deviation of similarity scores (6 decimal places) |
+| `min_similarity` | float | Minimum similarity score (6 decimal places) |
+| `max_similarity` | float | Maximum similarity score (6 decimal places) |
+| `q25_similarity` | float | First quartile (25th percentile) of similarity scores (6 decimal places) |
+| `q75_similarity` | float | Third quartile (75th percentile) of similarity scores (6 decimal places) |
+| `num_comparisons` | int | Number of articles compared against |
+
+Each row represents statistical information about how similar one article's writing style is compared to all other articles in the dataset.
+
