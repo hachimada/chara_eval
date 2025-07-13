@@ -67,25 +67,63 @@ def filter_articles_by_median_similarity(df: pd.DataFrame, threshold: float = 0.
     return df[df["median_similarity"] > threshold].copy()
 
 
-def load_content_from_file_or_string(content_input: str) -> str:
-    """Load content from file path or return as string.
+def load_content_from_file_path(file_path: str) -> str:
+    """Load content from file path.
 
     Parameters
     ----------
-    content_input : str
-        Either a file path or content string
+    file_path : str
+        Path to the file containing article content
 
     Returns
     -------
     str
         Content text
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist
     """
-    content_path = Path(content_input)
-    if content_path.exists() and content_path.is_file():
-        with open(content_path, "r", encoding="utf-8") as f:
-            return f.read()
+    content_path = Path(file_path)
+    if not content_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    if not content_path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
+    
+    with open(content_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def get_article_content(content: str | None = None, file_path: str | None = None) -> str:
+    """Get article content from either direct content or file path.
+
+    Parameters
+    ----------
+    content : str, optional
+        Direct article content text
+    file_path : str, optional
+        Path to file containing article content
+
+    Returns
+    -------
+    str
+        Article content
+
+    Raises
+    ------
+    ValueError
+        If neither content nor file_path is provided, or both are provided
+    """
+    if content is not None and file_path is not None:
+        raise ValueError("Provide either content or file_path, not both")
+    if content is None and file_path is None:
+        raise ValueError("Either content or file_path must be provided")
+    
+    if content is not None:
+        return content
     else:
-        return content_input
+        return load_content_from_file_path(file_path)
 
 
 def calculate_similarity_with_filtered_articles(
@@ -165,20 +203,26 @@ def calculate_similarity_with_filtered_articles(
 
 
 def eval_article_main(
-    content: str, csv_path: Path, median_similarity_th: float = 0.93, config_path: Path = None
+    csv_path: Path, 
+    median_similarity_th: float = 0.93, 
+    config_path: Path = None,
+    content: str | None = None, 
+    file_path: str | None = None
 ) -> dict[str, Any]:
     """Evaluate article against filtered existing articles.
 
     Parameters
     ----------
-    content : str
-        New article content (file path or string)
     csv_path : Path
         Path to article_similarity_statistics.csv
     median_similarity_th : float, optional
         Median similarity threshold, by default 0.93
     config_path : Path, optional
         Path to calculation_config.json, by default None
+    content : str, optional
+        Direct article content text
+    file_path : str, optional
+        Path to file containing article content
 
     Returns
     -------
@@ -186,7 +230,7 @@ def eval_article_main(
         Evaluation results
     """
     # Load new article content
-    new_content = load_content_from_file_or_string(content)
+    new_content = get_article_content(content=content, file_path=file_path)
 
     # Load article statistics
     df = load_article_statistics(csv_path)
@@ -209,6 +253,8 @@ def eval_article_main(
             "median_similarity_threshold": median_similarity_th,
             "csv_path": str(csv_path),
             "config_path": str(config_path) if config_path else None,
+            "input_type": "direct_content" if content is not None else "file_path",
+            "file_path": file_path if file_path is not None else None,
         },
         "filtering_results": {
             "total_articles": len(df),
@@ -225,7 +271,12 @@ def eval_article_main(
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Evaluate new article similarity against filtered existing articles.")
-    parser.add_argument("--content", type=str, required=True, help="New article content (file path or string)")
+    
+    # Content input options (mutually exclusive)
+    content_group = parser.add_mutually_exclusive_group(required=True)
+    content_group.add_argument("--content", type=str, help="Direct article content text")
+    content_group.add_argument("--file", type=str, help="Path to file containing article content")
+    
     parser.add_argument("--csv", type=Path, required=True, help="Path to article_similarity_statistics.csv file")
     parser.add_argument("--th", type=float, default=0.93, help="Median similarity threshold (default: 0.93)")
     parser.add_argument("--config", type=Path, help="Path to calculation_config.json file")
@@ -236,7 +287,11 @@ if __name__ == "__main__":
     args = parse_args()
 
     results = eval_article_main(
-        content=args.content, csv_path=args.csv, median_similarity_th=args.th, config_path=args.config
+        csv_path=args.csv, 
+        median_similarity_th=args.th, 
+        config_path=args.config,
+        content=args.content,
+        file_path=args.file
     )
 
     # Print results summary

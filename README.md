@@ -136,9 +136,19 @@ The Article Evaluation API provides functionality to evaluate the similarity bet
 
 #### Command Line Interface
 
+**Using direct content:**
 ```bash
 uv run python -m src.eval_article \
---content "新しい記事の内容またはファイルパス" \
+--content "新しい記事の内容をここに直接入力" \
+--csv output/{creator_name}/{timestamp}/article_similarity_statistics.csv \
+--config output/{creator_name}/{timestamp}/calculation_config.json \
+--th 0.93
+```
+
+**Using file path:**
+```bash
+uv run python -m src.eval_article \
+--file "datasets/new_article.md" \
 --csv output/{creator_name}/{timestamp}/article_similarity_statistics.csv \
 --config output/{creator_name}/{timestamp}/calculation_config.json \
 --th 0.93
@@ -159,13 +169,25 @@ The API will be available at `http://localhost:8000` with the following endpoint
 - `GET /docs` - Interactive API documentation (Swagger UI)
 - `POST /evaluate` - Article evaluation endpoint
 
-#### API Request Example
+#### API Request Examples
 
+**Using direct content:**
 ```bash
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
   -d '{
-    "content": "ここに新しい記事の内容を入力",
+    "content": "ここに新しい記事の内容を直接入力",
+    "config_path": "output/creator_name/2024-01-01T12:00:00/calculation_config.json",
+    "median_similarity_th": 0.93
+  }'
+```
+
+**Using file path:**
+```bash
+curl -X POST "http://localhost:8000/evaluate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_path": "datasets/new_article.md",
     "config_path": "output/creator_name/2024-01-01T12:00:00/calculation_config.json",
     "median_similarity_th": 0.93
   }'
@@ -173,18 +195,39 @@ curl -X POST "http://localhost:8000/evaluate" \
 
 #### Parameters
 
-- `content`: New article content (string or file path)
+**API Parameters:**
+- `content`: Direct article content text (optional, mutually exclusive with file_path)
+- `file_path`: Path to file containing article content (optional, mutually exclusive with content)
 - `config_path`: Path to calculation_config.json file (required)
 - `median_similarity_th`: Median similarity threshold for filtering existing articles (default: 0.93)
 
-The CSV file (`article_similarity_statistics.csv`) is automatically loaded from the same directory as the config file.
+**CLI Parameters:**
+- `--content`: Direct article content text (mutually exclusive with --file)
+- `--file`: Path to file containing article content (mutually exclusive with --content)
+- `--csv`: Path to article_similarity_statistics.csv file (required)
+- `--config`: Path to calculation_config.json file (optional)
+- `--th`: Median similarity threshold (default: 0.93)
+
+**Important Notes:**
+- For API: Either `content` or `file_path` must be provided, but not both
+- For CLI: Either `--content` or `--file` must be provided, but not both
+- The CSV file (`article_similarity_statistics.csv`) is automatically loaded from the same directory as the config file for API requests
+- File paths can be absolute or relative to the current working directory
 
 #### Response
 
 The API returns evaluation results including:
 
-- **Input parameters**: Content length, threshold, file paths
+- **Input parameters**: Content length, threshold, file paths, input type (direct_content or file_path)
 - **Filtering results**: Total articles, filtered count, filtering ratio
-- **Similarity results**: Statistical measures and detailed similarity scores
+- **Similarity results**: Statistical measures (mean, median, std, min, max, count)
 - **Configuration**: Model parameters used for calculation
+
+#### Error Handling
+
+The API now provides clear error messages for:
+- Missing or invalid input parameters (both content and file_path provided, or neither provided)
+- File not found errors
+- Invalid file paths
+- Missing configuration or CSV files
 

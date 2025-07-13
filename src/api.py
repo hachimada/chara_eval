@@ -4,7 +4,7 @@ FastAPI application for article evaluation endpoints.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -17,15 +17,18 @@ class EvaluationRequest(BaseModel):
 
     Attributes
     ----------
-    content : str
-        New article content (file path or string)
+    content : Optional[str]
+        Direct article content text (optional)
+    file_path : Optional[str]
+        Path to file containing article content (optional)
     median_similarity_th : float
         Median similarity threshold (default: 0.93)
     config_path : str
         Path to calculation_config.json file (required)
     """
 
-    content: str = Field(..., description="New article content (file path or string)")
+    content: Optional[str] = Field(None, description="Direct article content text")
+    file_path: Optional[str] = Field(None, description="Path to file containing article content")
     median_similarity_th: float = Field(0.93, description="Median similarity threshold")
     config_path: str = Field(..., description="Path to calculation_config.json file")
 
@@ -78,6 +81,12 @@ async def evaluate_article(request: EvaluationRequest) -> EvaluationResponse:
         If config file or CSV file doesn't exist, or evaluation fails
     """
     try:
+        # Validate input parameters
+        if request.content is None and request.file_path is None:
+            raise HTTPException(status_code=400, detail="Either content or file_path must be provided")
+        if request.content is not None and request.file_path is not None:
+            raise HTTPException(status_code=400, detail="Provide either content or file_path, not both")
+        
         # Validate config file path
         config_path = Path(request.config_path)
         if not config_path.exists():
@@ -90,10 +99,11 @@ async def evaluate_article(request: EvaluationRequest) -> EvaluationResponse:
 
         # Perform evaluation
         results = eval_article_main(
-            content=request.content,
             csv_path=csv_path,
             median_similarity_th=request.median_similarity_th,
             config_path=config_path,
+            content=request.content,
+            file_path=request.file_path,
         )
 
         return EvaluationResponse(**results)
