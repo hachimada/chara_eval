@@ -1,0 +1,261 @@
+"""eval_article.py
+
+Article evaluation functionality for filtering and calculating similarity
+with existing articles based on median similarity thresholds.
+"""
+
+import argparse
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from src.database import DatabaseManager
+from src.entity.pos_ngram_similarity import CalculationConfig
+from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
+from src.services import ArticleService
+
+
+def load_calculation_config(config_path: Path) -> CalculationConfig:
+    """Load calculation configuration from JSON file.
+
+    Parameters
+    ----------
+    config_path : Path
+        Path to the calculation_config.json file
+
+    Returns
+    -------
+    CalculationConfig
+        Loaded configuration object
+    """
+    return CalculationConfig.from_json(config_path)
+
+
+def load_article_statistics(csv_path: Path) -> pd.DataFrame:
+    """Load article similarity statistics from CSV file.
+
+    Parameters
+    ----------
+    csv_path : Path
+        Path to the article_similarity_statistics.csv file
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing article statistics
+    """
+    return pd.read_csv(csv_path)
+
+
+def filter_articles_by_median_similarity(df: pd.DataFrame, threshold: float = 0.93) -> pd.DataFrame:
+    """Filter articles by median similarity threshold.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing article statistics
+    threshold : float, optional
+        Median similarity threshold, by default 0.93
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered DataFrame containing only articles above the threshold
+    """
+    return df[df["median_similarity"] > threshold].copy()
+
+
+def load_content_from_file_or_string(content_input: str) -> str:
+    """Load content from file path or return as string.
+
+    Parameters
+    ----------
+    content_input : str
+        Either a file path or content string
+
+    Returns
+    -------
+    str
+        Content text
+    """
+    content_path = Path(content_input)
+    if content_path.exists() and content_path.is_file():
+        with open(content_path, "r", encoding="utf-8") as f:
+            return f.read()
+    else:
+        return content_input
+
+
+def calculate_similarity_with_filtered_articles(
+    new_content: str, filtered_articles: pd.DataFrame, config: CalculationConfig
+) -> dict[str, Any]:
+    """Calculate similarity between new content and filtered articles.
+
+    Parameters
+    ----------
+    new_content : str
+        Content of the new article
+    filtered_articles : pd.DataFrame
+        DataFrame of filtered articles
+    config : CalculationConfig
+        Configuration containing model parameters
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary containing similarity statistics
+    """
+    # Initialize database connection and service
+    db_manager = DatabaseManager()
+    article_service = ArticleService(db_manager)
+
+    # Get article IDs from filtered articles
+    article_ids = filtered_articles["article_id"].tolist()
+
+    # Retrieve articles from database
+    articles = article_service.get_articles_by_ids(article_ids)
+
+    # Create a mapping from article_id to article object
+    article_map = {article.link: article for article in articles}
+
+    similarities = []
+
+    for _, article_row in filtered_articles.iterrows():
+        article_id = article_row["article_id"]
+
+        try:
+            # Get article from the retrieved articles
+            article = article_map.get(article_id)
+
+            if article is None:
+                print(f"Warning: Article not found in database: {article_id}")
+                continue
+
+            # Calculate similarity using the same method as in the original calculation
+            similarity = pos_ngram_cosine_similarity(
+                new_content,
+                article.content.markdown,
+                n=config.ngram_size,
+                spacy_model=config.model,
+                embedding_type=config.embedding_method,
+            )
+
+            similarities.append(similarity)
+
+        except Exception as e:
+            print(f"Error calculating similarity for article {article_id}: {str(e)}")
+            continue
+
+    # Calculate statistics
+    if similarities:
+        statistics = {
+            "count": len(similarities),
+            "mean": float(np.mean(similarities)),
+            "median": float(np.median(similarities)),
+            "std": float(np.std(similarities)),
+            "min": float(np.min(similarities)),
+            "max": float(np.max(similarities)),
+        }
+    else:
+        statistics = {"count": 0, "mean": None, "median": None, "std": None, "min": None, "max": None}
+
+    return {"statistics": statistics}
+
+
+def eval_article_main(
+    content: str, csv_path: Path, median_similarity_th: float = 0.93, config_path: Path = None
+) -> dict[str, Any]:
+    """Evaluate article against filtered existing articles.
+
+    Parameters
+    ----------
+    content : str
+        New article content (file path or string)
+    csv_path : Path
+        Path to article_similarity_statistics.csv
+    median_similarity_th : float, optional
+        Median similarity threshold, by default 0.93
+    config_path : Path, optional
+        Path to calculation_config.json, by default None
+
+    Returns
+    -------
+    dict[str, Any]
+        Evaluation results
+    """
+    # Load new article content
+    new_content = load_content_from_file_or_string(content)
+
+    # Load article statistics
+    df = load_article_statistics(csv_path)
+
+    # Filter articles by median similarity threshold
+    filtered_articles = filter_articles_by_median_similarity(df, median_similarity_th)
+
+    # Load calculation configuration if provided
+    config = None
+    if config_path and config_path.exists():
+        config = load_calculation_config(config_path)
+
+    # Calculate similarities
+    similarity_results = calculate_similarity_with_filtered_articles(new_content, filtered_articles, config)
+
+    # Prepare results summary
+    results = {
+        "input_parameters": {
+            "content_length": len(new_content),
+            "median_similarity_threshold": median_similarity_th,
+            "csv_path": str(csv_path),
+            "config_path": str(config_path) if config_path else None,
+        },
+        "filtering_results": {
+            "total_articles": len(df),
+            "filtered_articles": len(filtered_articles),
+            "filtering_ratio": len(filtered_articles) / len(df) if len(df) > 0 else 0,
+        },
+        "similarity_results": similarity_results,
+        "configuration": config.to_dict() if config else None,
+    }
+
+    return results
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Evaluate new article similarity against filtered existing articles.")
+    parser.add_argument("--content", type=str, required=True, help="New article content (file path or string)")
+    parser.add_argument("--csv", type=Path, required=True, help="Path to article_similarity_statistics.csv file")
+    parser.add_argument("--th", type=float, default=0.93, help="Median similarity threshold (default: 0.93)")
+    parser.add_argument("--config", type=Path, help="Path to calculation_config.json file")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    results = eval_article_main(
+        content=args.content, csv_path=args.csv, median_similarity_th=args.th, config_path=args.config
+    )
+
+    # Print results summary
+    print("Evaluation completed:")
+    print(f"- Content length: {results['input_parameters']['content_length']} characters")
+    print(f"- Threshold: {results['input_parameters']['median_similarity_threshold']}")
+    print(f"- Total articles: {results['filtering_results']['total_articles']}")
+    print(f"- Filtered articles: {results['filtering_results']['filtered_articles']}")
+    print(f"- Filtering ratio: {results['filtering_results']['filtering_ratio']:.3f}")
+
+    # Print similarity statistics
+    stats = results["similarity_results"]["statistics"]
+    if stats["count"] > 0:
+        print("\nSimilarity Statistics:")
+        print(f"- Count: {stats['count']}")
+        print(f"- Mean: {stats['mean']:.3f}")
+        print(f"- Median: {stats['median']:.3f}")
+        print(f"- Std: {stats['std']:.3f}")
+        print(f"- Min: {stats['min']:.3f}")
+        print(f"- Max: {stats['max']:.3f}")
+    else:
+        print("\nNo articles passed the filtering threshold or similarity calculation failed.")

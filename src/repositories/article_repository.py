@@ -123,3 +123,36 @@ class ArticleRepository(BaseRepository[Article]):
                 )
                 articles.append(article)
             return articles
+
+    def find_by_ids(self, article_ids: list[str]) -> list[Article]:
+        """Get multiple articles by their IDs.
+
+        Parameters
+        ----------
+        article_ids : list[str]
+            List of article IDs to retrieve.
+
+        Returns
+        -------
+        list[Article]
+            List of found articles. Articles not found are omitted from the result.
+        """
+        with self.db_manager.get_session() as session:
+            models = session.query(ArticleModel).filter(ArticleModel.id.in_(article_ids)).all()
+
+            articles = []
+            for model in models:
+                content = Content(html=model.body_html)
+                article = Article(
+                    title=model.title,
+                    link=model.id,
+                    creator=model.creator,
+                    content=content,
+                    post_id=model.post_id,
+                    pub_date=datetime.fromisoformat(model.pub_date) if model.pub_date else datetime.now(),
+                    post_date=datetime.fromisoformat(model.post_date) if model.post_date else datetime.now(),
+                    post_type=model.post_type,
+                    status=model.status,
+                )
+                articles.append(article)
+            return articles

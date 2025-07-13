@@ -63,3 +63,18 @@ class ArticleService:
             List of articles by the specified creator.
         """
         return self.repository.find_by_creator(creator, newest_first)
+
+    def get_articles_by_ids(self, article_ids: list[str]) -> list[Article]:
+        """Get multiple articles by their IDs.
+
+        Parameters
+        ----------
+        article_ids : list[str]
+            List of article IDs to retrieve.
+
+        Returns
+        -------
+        list[Article]
+            List of found articles. Articles not found are omitted from the result.
+        """
+        return self.repository.find_by_ids(article_ids)
