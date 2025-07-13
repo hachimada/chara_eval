@@ -86,7 +86,7 @@ async def evaluate_article(request: EvaluationRequest) -> EvaluationResponse:
             raise HTTPException(status_code=400, detail="Either content or file_path must be provided")
         if request.content is not None and request.file_path is not None:
             raise HTTPException(status_code=400, detail="Provide either content or file_path, not both")
-        
+
         # Validate config file path
         config_path = Path(request.config_path)
         if not config_path.exists():

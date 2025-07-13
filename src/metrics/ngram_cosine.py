@@ -107,10 +107,9 @@ def morphological_analysis(nlp, text: str) -> tuple[List[str], List[str], List[s
 def pos_ngram_cosine_similarity(
     text_a: str,
     text_b: str,
+    nlp: spacy.language.Language,
     n: int = 2,
-    spacy_model: str = "ja_core_news_sm",
     embedding_type: str = "bow",
-    nlp=None,
 ) -> float:
     """Compute cosine similarity between two texts based on POS n‑grams.
 
@@ -120,14 +119,12 @@ def pos_ngram_cosine_similarity(
         First input text.
     text_b : str
         Second input text.
+    nlp : spacy.language.Language
+        Pre-loaded SpaCy model instance.
     n : int, optional
         Size of the n‑gram window (default is 2).
-    spacy_model : str, optional
-        Name of the SpaCy model to load (default ``"ja_core_news_sm"``).
     embedding_type : str, optional
         Type of embedding to use for the n‑grams (default is "bow" for Bag-of-Words).
-    nlp : spacy.language.Language, optional
-        Pre-loaded SpaCy model instance. If provided, spacy_model parameter is ignored.
 
     Returns
     -------
@@ -145,24 +142,11 @@ def pos_ngram_cosine_similarity(
 
         \\text{sim}(\\mathbf{A}, \\mathbf{B}) =
         \\frac{\\sum_i A_i B_i}{\\sqrt{\\sum_i A_i^2}\\;\\sqrt{\\sum_i B_i^2}}.
-
-    Examples
-    --------
-    >>> pos_ngram_cosine_similarity("私は猫です。", "僕は犬だ。")
-    0.83  # depending on the tokenizer/pos‑tagger
     """
-    # Use provided nlp instance or load/cache a model
-    if nlp is not None:
-        nlp_instance = nlp
-    else:
-        # SpaCyモデルは一度読み込んだらキャッシュして再利用する
-        if not hasattr(pos_ngram_cosine_similarity, "_nlp"):
-            pos_ngram_cosine_similarity._nlp = spacy.load(spacy_model)
-        nlp_instance = pos_ngram_cosine_similarity._nlp
 
     # 形態素解析
-    doc_a, pos_a, lemma_a = morphological_analysis(nlp_instance, text_a)
-    doc_b, pos_b, lemma_b = morphological_analysis(nlp_instance, text_b)
+    doc_a, pos_a, lemma_a = morphological_analysis(nlp, text_a)
+    doc_b, pos_b, lemma_b = morphological_analysis(nlp, text_b)
 
     # 十分な長さがなければ類似度は0とする
     if len(pos_a) < n or len(pos_b) < n:

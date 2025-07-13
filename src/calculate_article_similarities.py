@@ -3,6 +3,7 @@ from itertools import combinations
 from pathlib import Path
 
 import numpy as np
+import spacy
 from tqdm import tqdm
 
 from src.const import ROOT
@@ -174,6 +175,9 @@ if __name__ == "__main__":
         if (a.link, b.link) in missing_link_set or (b.link, a.link) in missing_link_set:
             new_pairs_to_calculate.append((a, b))
 
+    # モデルの読み込み
+    nlp = spacy.load(config.model)
+
     # 新しい類似度を計算して保存
     newly_calculated_similarities = []
     if new_pairs_to_calculate:
@@ -183,7 +187,7 @@ if __name__ == "__main__":
                     article_a.content.markdown,
                     article_b.content.markdown,
                     n=config.ngram_size,
-                    spacy_model=config.model,
+                    nlp=nlp,
                     embedding_type=config.embedding_method,
                 )
 

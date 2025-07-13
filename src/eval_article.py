@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import spacy
 
 from src.database import DatabaseManager
 from src.entity.pos_ngram_similarity import CalculationConfig
@@ -90,7 +91,7 @@ def load_content_from_file_path(file_path: str) -> str:
         raise FileNotFoundError(f"File not found: {file_path}")
     if not content_path.is_file():
         raise ValueError(f"Path is not a file: {file_path}")
-    
+
     with open(content_path, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -119,7 +120,7 @@ def get_article_content(content: str | None = None, file_path: str | None = None
         raise ValueError("Provide either content or file_path, not both")
     if content is None and file_path is None:
         raise ValueError("Either content or file_path must be provided")
-    
+
     if content is not None:
         return content
     else:
@@ -158,8 +159,8 @@ def calculate_similarity_with_filtered_articles(
     # Create a mapping from article_id to article object
     article_map = {article.link: article for article in articles}
 
+    nlp = spacy.load(config.model)
     similarities = []
-
     for _, article_row in filtered_articles.iterrows():
         article_id = article_row["article_id"]
 
@@ -176,7 +177,7 @@ def calculate_similarity_with_filtered_articles(
                 new_content,
                 article.content.markdown,
                 n=config.ngram_size,
-                spacy_model=config.model,
+                nlp=nlp,
                 embedding_type=config.embedding_method,
             )
 
@@ -203,11 +204,11 @@ def calculate_similarity_with_filtered_articles(
 
 
 def eval_article_main(
-    csv_path: Path, 
-    median_similarity_th: float = 0.93, 
+    csv_path: Path,
+    median_similarity_th: float = 0.93,
     config_path: Path = None,
-    content: str | None = None, 
-    file_path: str | None = None
+    content: str | None = None,
+    file_path: str | None = None,
 ) -> dict[str, Any]:
     """Evaluate article against filtered existing articles.
 
@@ -271,12 +272,12 @@ def eval_article_main(
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Evaluate new article similarity against filtered existing articles.")
-    
+
     # Content input options (mutually exclusive)
     content_group = parser.add_mutually_exclusive_group(required=True)
     content_group.add_argument("--content", type=str, help="Direct article content text")
     content_group.add_argument("--file", type=str, help="Path to file containing article content")
-    
+
     parser.add_argument("--csv", type=Path, required=True, help="Path to article_similarity_statistics.csv file")
     parser.add_argument("--th", type=float, default=0.93, help="Median similarity threshold (default: 0.93)")
     parser.add_argument("--config", type=Path, help="Path to calculation_config.json file")
@@ -287,11 +288,11 @@ if __name__ == "__main__":
     args = parse_args()
 
     results = eval_article_main(
-        csv_path=args.csv, 
-        median_similarity_th=args.th, 
+        csv_path=args.csv,
+        median_similarity_th=args.th,
         config_path=args.config,
         content=args.content,
-        file_path=args.file
+        file_path=args.file,
     )
 
     # Print results summary
