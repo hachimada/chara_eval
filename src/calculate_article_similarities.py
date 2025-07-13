@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from src.const import ROOT
 from src.database import DatabaseManager
-from src.entity.pos_ngram_similarity import PosNgramSimilarityResult
+from src.entity.pos_ngram_similarity import CalculationConfig, PosNgramSimilarityResult
 from src.metrics.ngram_cosine import pos_ngram_cosine_similarity
 from src.services import ArticleService, PosNgramSimilarityService
 from src.visualize_similarity import (
@@ -135,8 +135,27 @@ if __name__ == "__main__":
         print(f"Limited to {len(article_list)} articles based on size parameter.")
 
     # 本文が100文字未満の記事は除外
+    total_articles = len(article_list)
     article_list = [art for art in article_list if len(art.content.markdown) >= 100]
-    print(f"Filtered articles (length >= 100): {len(article_list)} articles.")
+    filtered_articles = len(article_list)
+    print(f"Filtered articles (length >= 100): {filtered_articles} articles.")
+
+    # 設定を保存
+    config = CalculationConfig(
+        creator=creator,
+        model=model_name,
+        ngram_size=ngram_size,
+        embedding_method=embedding_type,
+        xml_file=xml_file,
+        total_articles_found=total_articles,
+        articles_after_filtering=filtered_articles,
+    )
+
+    save_dir = output_dir / creator / config.execution_timestamp
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    config_path = config.save_to_json(save_dir)
+    print(f"Configuration saved to: {config_path}")
 
     article_pairs = list(combinations(article_list, 2))
 
@@ -144,7 +163,9 @@ if __name__ == "__main__":
     pair_links = [(a.link, b.link) for a, b in article_pairs]
 
     # Use the new missing pairs detection method
-    missing_pairs = similarity_service.get_missing_similarities(pair_links, model_name, ngram_size, embedding_type)
+    missing_pairs = similarity_service.get_missing_similarities(
+        pair_links, config.model, config.ngram_size, config.embedding_method
+    )
 
     # Convert missing pair links back to article objects
     missing_link_set = set(missing_pairs)
@@ -161,25 +182,25 @@ if __name__ == "__main__":
                 similarity = pos_ngram_cosine_similarity(
                     article_a.content.markdown,
                     article_b.content.markdown,
-                    n=ngram_size,
-                    spacy_model=model_name,
-                    embedding_type=embedding_type,
+                    n=config.ngram_size,
+                    spacy_model=config.model,
+                    embedding_type=config.embedding_method,
                 )
 
                 # Create similarity results for both directions
                 similarity_result_a_to_b = PosNgramSimilarityResult(
                     other_article_id=article_b.link,
-                    model=model_name,
-                    ngram_size=ngram_size,
-                    embedding_method=embedding_type,
+                    model=config.model,
+                    ngram_size=config.ngram_size,
+                    embedding_method=config.embedding_method,
                     ngram_similarity=similarity,
                 )
 
                 similarity_result_b_to_a = PosNgramSimilarityResult(
                     other_article_id=article_a.link,
-                    model=model_name,
-                    ngram_size=ngram_size,
-                    embedding_method=embedding_type,
+                    model=config.model,
+                    ngram_size=config.ngram_size,
+                    embedding_method=config.embedding_method,
                     ngram_similarity=similarity,
                 )
 
@@ -203,19 +224,15 @@ if __name__ == "__main__":
     similarity_pairs = convert_to_similarity_pairs(
         similarity_service=similarity_service,
         article_links=article_links_for_vis,
-        model=model_name,
-        ngram_size=ngram_size,
-        embedding_method=embedding_type,
+        model=config.model,
+        ngram_size=config.ngram_size,
+        embedding_method=config.embedding_method,
     )
 
     visualize_similarities(
         similarities=similarity_pairs,
         article_links=article_links_for_vis,
-        model=model_name,
-        ngram_size=ngram_size,
-        embedding_method=embedding_type,
-        creator=creator,
-        output_dir=output_dir,
+        save_dir=save_dir,
     )
 
     # --- 記事別類似度分析を実行 ---
@@ -225,23 +242,14 @@ if __name__ == "__main__":
     article_stats = analyze_article_similarities(similarity_pairs, article_links_for_vis, article_list)
 
     if article_stats:
-        save_dir = output_dir / creator
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        # ファイル名サフィックス
-        suffix_parts = [f"model_{model_name}", f"n_{ngram_size}", f"emb_{embedding_type}"]
-        suffix = "_" + "_".join(suffix_parts) if suffix_parts else ""
-
         # 記事別類似度統計をCSVに出力
-        csv_path = save_dir / f"article_similarity_statistics{suffix}.csv"
+        csv_path = save_dir / "article_similarity_statistics.csv"
         export_article_similarity_stats_csv(article_stats, csv_path)
         print(f"Article similarity statistics saved to: {csv_path}")
 
         # 記事ごとの類似度中央値の分布
-        median_dist_path = save_dir / f"median_similarity_distribution{suffix}.png"
+        median_dist_path = save_dir / "median_similarity_distribution.png"
         median_dist_title = "Distribution of Article Similarity Medians"
-        if suffix_parts:
-            median_dist_title += f" ({', '.join(suffix_parts)})"
 
         create_median_similarity_distribution(article_stats, median_dist_path, median_dist_title)
         print(f"Median similarity distribution saved to: {median_dist_path}")

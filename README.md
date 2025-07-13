@@ -48,7 +48,7 @@ This repository analyzes xml files that contain articles exported from the note 
 | title       | text | 記事のタイトル          |
 | body_md     | text | markdown形式の記事の本文 |
 | body_html   | text | HTML形式の記事の本文     |
-| post_id     | int  | 記事のID             |
+| post_id     | int  | 記事のID            |
 | post_type   | text | 記事のタイプ           |
 | status      | text | 記事のステータス         |
 
@@ -59,19 +59,19 @@ This repository analyzes xml files that contain articles exported from the note 
 | id               | int  | ID(pkey)      |
 | article_id_a     | int  | 記事のID         |
 | article_id_b     | int  | 記事のID         |
-| model           | text | 使用したモデル名      |
-|ngram_size      | int  | ngramのサイズ        |
-|embedding_method | text | POSの埋め込み方法      |
+| model            | text | 使用したモデル名      |
+| ngram_size       | int  | ngramのサイズ     |
+| embedding_method | text | POSの埋め込み方法    |
 | ngram_similarity | text | pos_ngramの類似度 |
 
-- 
 
 ### Writing style similarity
 
-To analyze the similarity of writing styles in articles, you can use the `calculate_article_similarities` module. 
+To analyze the similarity of writing styles in articles, you can use the `calculate_article_similarities` module.
 This module computes the similarity between articles based on their POS n-grams.
 
 The script automatically:
+
 - Skips similarity calculations for article pairs that already exist in the database
 - Calculates similarities only for new article combinations
 - Creates visualizations (heatmap and distribution plots) after processing
@@ -87,24 +87,31 @@ uv run python -m src.calculate_article_similarities \
 
 Results will be saved in `pos_ngram_similarity` table and visualization files will be generated in the output directory.
 
-#### CSV Output
+#### Outputs
 
-The script generates an article similarity statistics CSV file with the following structure:
+After running the script, the following files will be generated in the `output/{creator}/{timestamp}` directory:
 
-| Column Name | Data Type | Description |
-|-------------|-----------|-------------|
-| `article_id` | string | Article ID (URL) |
-| `article_name` | string | Article name (extracted from URL) |
-| `pub_date` | string | Publication date (ISO format) |
-| `character_count` | int | Character count of the article |
-| `mean_similarity` | float | Mean similarity score with other articles (6 decimal places) |
-| `median_similarity` | float | Median similarity score with other articles (6 decimal places) |
-| `std_similarity` | float | Standard deviation of similarity scores (6 decimal places) |
-| `min_similarity` | float | Minimum similarity score (6 decimal places) |
-| `max_similarity` | float | Maximum similarity score (6 decimal places) |
-| `q25_similarity` | float | First quartile (25th percentile) of similarity scores (6 decimal places) |
-| `q75_similarity` | float | Third quartile (75th percentile) of similarity scores (6 decimal places) |
-| `num_comparisons` | int | Number of articles compared against |
+- calculation_config.json - 計算設定
+- article_similarity_statistics.csv - 統計CSV
+- median_similarity_distribution.png - 分布図
 
-Each row represents statistical information about how similar one article's writing style is compared to all other articles in the dataset.
+structure of `article_similarity_statistics.csv` is as follows:
+
+| Column Name         | Data Type | Description                                                              |
+|---------------------|-----------|--------------------------------------------------------------------------|
+| `article_id`        | string    | Article ID (URL)                                                         |
+| `article_name`      | string    | Article name (extracted from URL)                                        |
+| `pub_date`          | string    | Publication date (ISO format)                                            |
+| `character_count`   | int       | Character count of the article                                           |
+| `mean_similarity`   | float     | Mean similarity score with other articles (6 decimal places)             |
+| `median_similarity` | float     | Median similarity score with other articles (6 decimal places)           |
+| `std_similarity`    | float     | Standard deviation of similarity scores (6 decimal places)               |
+| `min_similarity`    | float     | Minimum similarity score (6 decimal places)                              |
+| `max_similarity`    | float     | Maximum similarity score (6 decimal places)                              |
+| `q25_similarity`    | float     | First quartile (25th percentile) of similarity scores (6 decimal places) |
+| `q75_similarity`    | float     | Third quartile (75th percentile) of similarity scores (6 decimal places) |
+| `num_comparisons`   | int       | Number of articles compared against                                      |
+
+Each row represents statistical information about how similar one article's writing style is compared to all other
+articles in the dataset.
 

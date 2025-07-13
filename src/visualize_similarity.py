@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from src.const import ROOT
-
 
 @dataclass
 class SimilarityPair:
@@ -134,14 +132,9 @@ def create_similarity_distribution(
 def visualize_similarities(
     similarities: List[SimilarityPair],
     article_links: List[str],
-    creator: str,
-    model: str,
-    ngram_size: int,
-    embedding_method: str,
-    output_dir: Path = ROOT / "output",
+    save_dir: Path,
 ):
     """類似度データを可視化"""
-    save_dir = output_dir / creator
     save_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Visualizing {len(similarities)} similarity records for {len(article_links)} articles.")
@@ -155,24 +148,16 @@ def visualize_similarities(
     # 類似度マトリックスを作成
     similarity_matrix, link_to_idx = create_similarity_matrix(similarities, article_links)
 
-    # ファイル名に使用するサフィックス
-    suffix_parts = [f"model_{model}", f"n_{ngram_size}", f"emb_{embedding_method}"]
-    suffix = "_" + "_".join(suffix_parts) if suffix_parts else ""
-
     # ヒートマップを作成
-    heatmap_path = save_dir / f"similarity_heatmap{suffix}.png"
+    heatmap_path = save_dir / "similarity_heatmap.png"
     title = "Article Similarity Heatmap"
-    if suffix_parts:
-        title += f" ({', '.join(suffix_parts)})"
 
     create_heatmap(similarity_matrix, article_labels, heatmap_path, title)
     print(f"Heatmap saved to: {heatmap_path}")
 
     # 類似度分布を作成
-    distribution_path = save_dir / f"similarity_distribution{suffix}.png"
+    distribution_path = save_dir / "similarity_distribution.png"
     dist_title = "Similarity Distribution"
-    if suffix_parts:
-        dist_title += f" ({', '.join(suffix_parts)})"
 
     create_similarity_distribution(similarities, distribution_path, dist_title)
     print(f"Distribution plot saved to: {distribution_path}")
