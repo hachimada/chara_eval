@@ -75,6 +75,7 @@ def embedding(
     else:
         raise ValueError("Unknown embedding type: {}".format(type))
 
+
 def morphological_analysis(nlp, text: str) -> tuple[List[str], List[str], List[str]]:
     """Perform morphological analysis on the input text using SpaCy.
 
